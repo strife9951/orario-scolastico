@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Il mio orario — Scuola</title>
+  <link rel="icon" href="/logo.jpg" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/@simplewebauthn/browser@13.1.0/dist/bundle/index.umd.min.js"></script>
   <style>
@@ -13,7 +13,7 @@
     .app { max-width:980px; margin:0 auto; padding:20px 18px 48px; }
     header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
     .brand { display:flex; align-items:center; gap:12px; }
-    .logo { width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,#5eead4,#60a5fa); display:grid; place-items:center; font-weight:800; color:#042f2e; }
+    .logo { width:46px; height:46px; border-radius:14px; object-fit:cover; display:block; }
     .brand h1 { font-size:1.25rem; }
     .brand p { color:var(--muted); font-size:.85rem; }
     .card { background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03)); border:1px solid var(--line); border-radius:20px; padding:18px; margin-bottom:16px; }
@@ -33,7 +33,7 @@
 <div class="app">
   <header>
     <div class="brand">
-      <div class="logo">OS</div>
+      <img class="logo" src="/logo.jpg" alt="" />
       <div>
         <h1>Il mio orario</h1>
         <p id="headerStatus">Accesso con Passkey</p>
