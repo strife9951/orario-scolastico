@@ -36,7 +36,7 @@
       <div class="logo">OS</div>
       <div>
         <h1>Il mio orario</h1>
-        <p id="headerStatus">Accesso con Passkey</p>
+        <p id="headerStatus">Accesso con Passkey · build 3</p>
       </div>
     </div>
   </header>
@@ -73,6 +73,7 @@
 <script>
 const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
 let currentEmail = localStorage.getItem('orario.email') || null;
+let session = localStorage.getItem('orario.session') || null;
 let data = { studenti: [] };
 
 function note(id, msg) { document.getElementById(id).textContent = msg || ''; }
@@ -81,44 +82,72 @@ async function postJson(url, body) {
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify(body),
   });
   const text = await r.text();
-  let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { throw new Error('Risposta non valida dal server.'); }
+  let payload = {};
+  try { payload = text ? JSON.parse(text) : {}; }
+  catch { throw new Error('Il server non ha risposto in JSON.'); }
   if (!r.ok) {
-    const err = data.error;
-    const msg = typeof err === 'string' ? err : (err && err.message) || data.message || ('Errore ' + r.status);
+    const err = payload.error;
+    const msg = typeof err === 'string' ? err : (err && err.message) || payload.message || ('Errore ' + r.status);
     throw new Error(msg);
   }
-  return data;
+  return payload;
+}
+
+function optionsOf(payload) {
+  const options = payload.options || payload;
+  if (!options || !options.challenge) {
+    throw new Error('Il server non ha restituito la challenge.');
+  }
+  return options;
 }
 
 function setLogged(email) {
   currentEmail = email;
   localStorage.setItem('orario.email', email || '');
+  if (!email) {
+    session = null;
+    localStorage.removeItem('orario.session');
+  }
   document.getElementById('authCard').classList.toggle('hidden', !!email);
   document.getElementById('appCard').classList.toggle('hidden', !email);
   document.getElementById('btnOut').style.display = email ? '' : 'none';
-  document.getElementById('headerStatus').textContent = email ? email + ' · a.s. 2026/27' : 'Accesso con Passkey';
+  document.getElementById('headerStatus').textContent = email ? email + ' · a.s. 2026/27' : 'Accesso con Passkey · build 3';
   if (email) loadData();
 }
 
 async function loadData() {
   if (!currentEmail) return;
-  const r = await fetch('/api/data', { headers: { Authorization: currentEmail } });
-  data = r.ok ? await r.json() : { studenti: [] };
+  const local = localStorage.getItem('orario.data.' + currentEmail);
+  if (local) {
+    try { data = JSON.parse(local); } catch { data = { studenti: [] }; }
+  }
+  try {
+    const r = await fetch('/api/data', { headers: { Authorization: currentEmail } });
+    if (r.ok) {
+      const remote = await r.json();
+      if (remote && (remote.studenti || remote.orari || remote.libri)) data = remote;
+    }
+  } catch {}
   renderStudents();
 }
 
 async function saveData() {
   if (!currentEmail) return;
-  await fetch('/api/data', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: currentEmail },
-    body: JSON.stringify(data)
-  });
-  note('appNote', 'Salvato su Vercel Blob.');
+  localStorage.setItem('orario.data.' + currentEmail, JSON.stringify(data));
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: currentEmail },
+      body: JSON.stringify(data)
+    });
+    note('appNote', r.ok ? 'Salvato su Vercel Blob.' : 'Salvato su questo dispositivo.');
+  } catch {
+    note('appNote', 'Salvato su questo dispositivo.');
+  }
 }
 
 function renderStudents() {
@@ -132,28 +161,30 @@ document.getElementById('btnReg').onclick = async () => {
   const email = document.getElementById('email').value.trim();
   if (!email) return alert('Inserisci email.');
   try {
-    const opts = await postJson('/api/passkey/register', { email });
-    if (!opts.challenge) throw new Error('Il server non ha restituito la challenge.');
-    const cred = await startRegistration({ optionsJSON: opts });
-    const res = await postJson('/api/passkey/register', { email, credential: cred });
+    const started = await postJson('/api/passkey/register', { email });
+    const cred = await startRegistration({ optionsJSON: optionsOf(started) });
+    const res = await postJson('/api/passkey/register', { email, credential: cred, state: started.state });
     if (!res.verified) throw new Error('Registrazione fallita');
-    note('authNote', 'Passkey registrata.');
+    session = res.session;
+    localStorage.setItem('orario.session', session);
+    note('authNote', res.cloud ? 'Passkey registrata e salvata sul cloud.' : 'Passkey registrata su questo browser.');
     setLogged(email);
-  } catch (e) { alert(e.message); }
+  } catch (e) { alert(e.message || String(e)); }
 };
 
 document.getElementById('btnLogin').onclick = async () => {
   const email = document.getElementById('email').value.trim();
   if (!email) return alert('Inserisci email.');
   try {
-    const opts = await postJson('/api/passkey/login', { email });
-    if (!opts.challenge) throw new Error('Il server non ha restituito la challenge.');
-    const cred = await startAuthentication({ optionsJSON: opts });
-    const res = await postJson('/api/passkey/login', { email, credential: cred });
+    const started = await postJson('/api/passkey/login', { email, session });
+    const cred = await startAuthentication({ optionsJSON: optionsOf(started) });
+    const res = await postJson('/api/passkey/login', { email, credential: cred, state: started.state, session });
     if (!res.verified) throw new Error('Login fallito');
+    session = res.session;
+    localStorage.setItem('orario.session', session);
     note('authNote', 'Accesso con passkey ok.');
     setLogged(email);
-  } catch (e) { alert(e.message); }
+  } catch (e) { alert(e.message || String(e)); }
 };
 
 document.getElementById('btnOut').onclick = () => setLogged(null);
