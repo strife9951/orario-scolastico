@@ -77,6 +77,23 @@ let data = { studenti: [] };
 
 function note(id, msg) { document.getElementById(id).textContent = msg || ''; }
 
+async function postJson(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { throw new Error('Risposta non valida dal server.'); }
+  if (!r.ok) {
+    const err = data.error;
+    const msg = typeof err === 'string' ? err : (err && err.message) || data.message || ('Errore ' + r.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+
 function setLogged(email) {
   currentEmail = email;
   localStorage.setItem('orario.email', email || '');
@@ -115,21 +132,13 @@ document.getElementById('btnReg').onclick = async () => {
   const email = document.getElementById('email').value.trim();
   if (!email) return alert('Inserisci email.');
   try {
-    const opts = await fetch('/api/passkey/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    }).then(r => r.json());
-    const cred = await startRegistration(opts);
-    const res = await fetch('/api/passkey/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, credential: cred })
-    }).then(r => r.json());
-    if (res.verified) {
-      note('authNote', 'Passkey registrata. Ora puoi accedere.');
-      setLogged(email);
-    } else alert(res.error || 'Registrazione fallita');
+    const opts = await postJson('/api/passkey/register', { email });
+    if (!opts.challenge) throw new Error('Il server non ha restituito la challenge.');
+    const cred = await startRegistration({ optionsJSON: opts });
+    const res = await postJson('/api/passkey/register', { email, credential: cred });
+    if (!res.verified) throw new Error('Registrazione fallita');
+    note('authNote', 'Passkey registrata.');
+    setLogged(email);
   } catch (e) { alert(e.message); }
 };
 
@@ -137,22 +146,13 @@ document.getElementById('btnLogin').onclick = async () => {
   const email = document.getElementById('email').value.trim();
   if (!email) return alert('Inserisci email.');
   try {
-    const opts = await fetch('/api/passkey/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    }).then(r => r.json());
-    if (opts.error) return alert(opts.error);
-    const cred = await startAuthentication(opts);
-    const res = await fetch('/api/passkey/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, credential: cred })
-    }).then(r => r.json());
-    if (res.verified) {
-      note('authNote', 'Accesso con passkey ok.');
-      setLogged(email);
-    } else alert(res.error || 'Login fallito');
+    const opts = await postJson('/api/passkey/login', { email });
+    if (!opts.challenge) throw new Error('Il server non ha restituito la challenge.');
+    const cred = await startAuthentication({ optionsJSON: opts });
+    const res = await postJson('/api/passkey/login', { email, credential: cred });
+    if (!res.verified) throw new Error('Login fallito');
+    note('authNote', 'Accesso con passkey ok.');
+    setLogged(email);
   } catch (e) { alert(e.message); }
 };
 

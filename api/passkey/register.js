@@ -1,44 +1,46 @@
 import { generateRegistrationOptions, verifyRegistrationResponse } from '@simplewebauthn/server';
-import { put, get } from '@vercel/blob';
+import { loadJson, saveJson } from '../../lib/blobStore.js';
 
 const rpName = 'Il mio orario';
-const rpID = process.env.WEBAUTHN_RP_ID || 'orario-scolastico-striker21.vercel.app';
-const origin = process.env.WEBAUTHN_ORIGIN || 'https://orario-scolastico-striker21.vercel.app';
 
-async function loadJson(path) {
-  try {
-    const res = await get(path, { access: 'public' });
-    if (res.statusCode === 200 && res.stream) {
-      const text = await new Response(res.stream).text();
-      return JSON.parse(text);
-    }
-  } catch {}
-  return null;
+function site(req) {
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0]
+    .trim();
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const hostname = host.split(':')[0];
+  return {
+    rpID: process.env.WEBAUTHN_RP_ID || hostname,
+    origin: process.env.WEBAUTHN_ORIGIN || `${proto}://${host}`,
+  };
 }
 
-async function saveJson(path, data) {
-  await put(path, JSON.stringify(data), {
-    access: 'public',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-  });
+function bodyOf(req) {
+  if (!req.body) return {};
+  if (typeof req.body === 'string') {
+    try { return JSON.parse(req.body); } catch { return {}; }
+  }
+  return req.body;
+}
+
+function safeEmail(email) {
+  return String(email).toLowerCase().replace(/[^a-z0-9@._-]/g, '_');
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non consentito' });
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  const { email, credential } = bodyOf(req);
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email non valida' });
 
-  const { email, credential } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'email required' });
-
-  const userPath = `passkeys/users/${email.replace(/[^a-zA-Z0-9@._-]/g, '_')}.json`;
-  const challengePath = `passkeys/challenges/${email.replace(/[^a-zA-Z0-9@._-]/g, '_')}.json`;
+  const { rpID, origin } = site(req);
+  const key = safeEmail(email);
+  const userPath = `passkeys/users/${key}.json`;
+  const challengePath = `passkeys/challenges/${key}.json`;
 
   try {
-    if (req.method === 'POST' && !credential) {
+    if (!credential) {
       const user = (await loadJson(userPath)) || { email, credentials: [] };
       const options = await generateRegistrationOptions({
         rpName,
@@ -50,42 +52,42 @@ export default async function handler(req, res) {
           residentKey: 'required',
           userVerification: 'preferred',
         },
-        excludeCredentials: user.credentials.map(c => ({ id: c.id, transports: c.transports })),
+        excludeCredentials: (user.credentials || []).map((c) => ({
+          id: c.id,
+          transports: c.transports,
+        })),
       });
       await saveJson(challengePath, { challenge: options.challenge, type: 'reg' });
       return res.status(200).json(options);
     }
 
-    if (req.method === 'POST' && credential) {
-      const stored = await loadJson(challengePath);
-      if (!stored || stored.type !== 'reg') return res.status(400).json({ error: 'no challenge' });
+    const stored = await loadJson(challengePath);
+    if (!stored || stored.type !== 'reg') return res.status(400).json({ error: 'Challenge scaduta. Riprova.' });
 
-      const verification = await verifyRegistrationResponse({
-        response: credential,
-        expectedChallenge: stored.challenge,
-        expectedOrigin: origin,
-        expectedRPID: rpID,
-      });
+    const verification = await verifyRegistrationResponse({
+      response: credential,
+      expectedChallenge: stored.challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+    });
 
-      if (!verification.verified || !verification.registrationInfo) {
-        return res.status(400).json({ error: 'verification failed' });
-      }
-
-      const { credential: cred } = verification.registrationInfo;
-      const user = (await loadJson(userPath)) || { email, credentials: [] };
-      user.credentials.push({
-        id: cred.id,
-        publicKey: Buffer.from(cred.publicKey).toString('base64'),
-        counter: cred.counter,
-        transports: cred.transports,
-      });
-      await saveJson(userPath, user);
-      return res.status(200).json({ verified: true });
+    if (!verification.verified || !verification.registrationInfo) {
+      return res.status(400).json({ error: 'Verifica passkey fallita' });
     }
 
-    return res.status(405).end();
+    const cred = verification.registrationInfo.credential;
+    const user = (await loadJson(userPath)) || { email, credentials: [] };
+    user.credentials = (user.credentials || []).filter((c) => c.id !== cred.id);
+    user.credentials.push({
+      id: cred.id,
+      publicKey: Buffer.from(cred.publicKey).toString('base64'),
+      counter: cred.counter,
+      transports: credential.response?.transports || cred.transports || [],
+    });
+    await saveJson(userPath, user);
+    return res.status(200).json({ verified: true });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Errore registrazione' });
   }
 }

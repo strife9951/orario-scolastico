@@ -1,4 +1,4 @@
-import { put, get } from '@vercel/blob';
+import { loadJson, saveJson } from '../lib/blobStore.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,23 +12,13 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      try {
-        const result = await get(pathname, { access: 'public' });
-        if (result.statusCode === 200 && result.stream) {
-          const text = await new Response(result.stream).text();
-          return res.status(200).json(JSON.parse(text));
-        }
-      } catch (e) {}
-      return res.status(200).json({ studenti: [], orari: {}, libri: {} });
+      const stored = await loadJson(pathname);
+      return res.status(200).json(stored || { studenti: [], orari: {}, libri: {} });
     }
 
     if (req.method === 'POST') {
-      const body = req.body || {};
-      await put(pathname, JSON.stringify(body), {
-        access: 'public',
-        contentType: 'application/json',
-        addRandomSuffix: false,
-      });
+      const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+      await saveJson(pathname, body);
       return res.status(200).json({ ok: true });
     }
 
