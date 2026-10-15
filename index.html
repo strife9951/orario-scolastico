@@ -5,52 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Il mio orario — Scuola</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root { --bg:#0b1220; --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.1); --text:#f4f7ff; --muted:#9aa8c2; --accent:#5eead4; }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:Outfit,system-ui,sans-serif; background:radial-gradient(1200px 600px at 10% -10%,#1d4ed833,transparent 50%),radial-gradient(900px 500px at 100% 0%,#0f766e33,transparent 45%),var(--bg); color:var(--text); min-height:100vh; }
-    .app { max-width:1180px; margin:0 auto; padding:20px 18px 48px; }
+    .app { max-width:980px; margin:0 auto; padding:20px 18px 48px; }
     header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
     .brand { display:flex; align-items:center; gap:12px; }
     .logo { width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,#5eead4,#60a5fa); display:grid; place-items:center; font-weight:800; color:#042f2e; }
     .brand h1 { font-size:1.25rem; }
     .brand p { color:var(--muted); font-size:.85rem; }
-    .pills { display:flex; gap:8px; flex-wrap:wrap; }
-    .pill { border:1px solid var(--line); background:var(--card); color:var(--text); padding:8px 14px; border-radius:999px; cursor:pointer; font:inherit; }
-    .pill.active { background:#14b8a633; border-color:#2dd4bf66; color:var(--accent); }
-    .hero { display:grid; grid-template-columns:1.4fr .8fr; gap:16px; margin-bottom:18px; }
-    @media (max-width:860px){ .hero{grid-template-columns:1fr;} }
-    .card { background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03)); border:1px solid var(--line); border-radius:20px; padding:18px; }
+    .card { background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03)); border:1px solid var(--line); border-radius:20px; padding:18px; margin-bottom:16px; }
     .kicker { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; }
-    .today-title { font-size:1.5rem; margin:6px 0 14px; }
-    .lesson { display:grid; grid-template-columns:72px 1fr auto; gap:12px; align-items:center; padding:12px 0; border-top:1px solid var(--line); }
-    .time { color:var(--accent); font-weight:600; }
-    .sub { color:var(--muted); font-size:.86rem; margin-top:2px; }
-    .badge { font-size:.75rem; padding:5px 9px; border-radius:999px; background:#1e293b; border:1px solid var(--line); }
-    .now { outline:1px solid #2dd4bf66; background:#042f2e44; border-radius:14px; padding:10px 8px; }
-    .stat { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; }
-    .stat b { display:block; font-size:1.35rem; margin-top:4px; }
-    .stats { display:grid; gap:10px; }
-    select,input { width:100%; background:#0b1220; color:var(--text); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; }
-    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 14px; }
-    .btn { border:0; border-radius:12px; padding:10px 14px; cursor:pointer; font:inherit; font-weight:600; background:linear-gradient(135deg,#2dd4bf,#38bdf8); color:#042f2e; }
+    .title { font-size:1.35rem; margin:6px 0 12px; }
+    .sub { color:var(--muted); font-size:.86rem; }
+    input,button { font:inherit; }
+    input { width:100%; background:#0b1220; color:var(--text); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-top:4px; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0; }
+    .btn { border:0; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600; background:linear-gradient(135deg,#2dd4bf,#38bdf8); color:#042f2e; }
     .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
-    table.orario { width:100%; border-collapse:separate; border-spacing:8px; min-width:760px; }
-    table.orario th,table.orario td { background:#162036; border-radius:14px; padding:10px; vertical-align:top; min-width:110px; }
-    table.orario th { color:var(--muted); font-weight:500; text-align:left; font-size:.85rem; }
-    .slot { border-radius:12px; padding:10px; min-height:72px; }
-    .slot h4 { font-size:.92rem; margin-bottom:4px; }
-    .slot p { color:var(--muted); font-size:.78rem; }
-    .c0 { border:1px solid #5eead466; background:#134e4a44; }
-    .c1 { border:1px solid #60a5fa66; background:#1e3a5f44; }
-    .c2 { border:1px solid #a78bfa66; background:#3b076444; }
-    .c3 { border:1px solid #fb923c66; background:#7c2d1244; }
-    .c4 { border:1px solid #f472b666; background:#50072444; }
-    .c5 { border:1px solid #34d39966; background:#064e3b44; }
-    .grid-wrap { overflow-x:auto; }
-    .hidden { display:none; }
-    .pdf-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    label.field { display:flex; flex-direction:column; gap:6px; font-size:.82rem; color:var(--muted); }
+    .hidden { display:none !important; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    label { display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:var(--muted); }
+    #note { margin-top:8px; font-size:.85rem; color:var(--muted); }
+    .student-chip { display:inline-block; padding:6px 12px; margin:4px; border-radius:999px; border:1px solid var(--line); cursor:pointer; }
+    .student-chip.active { background:#14b8a633; border-color:#2dd4bf66; color:var(--accent); }
   </style>
 </head>
 <body>
@@ -60,104 +40,200 @@
       <div class="logo">OS</div>
       <div>
         <h1>Il mio orario</h1>
-        <p>Vista studente · anno 2026/27</p>
+        <p id="headerStatus">Accesso obbligatorio</p>
       </div>
     </div>
-    <nav class="pills">
-      <button class="pill active" data-v="oggi">Oggi</button>
-      <button class="pill" data-v="settimana">Settimana</button>
-      <button class="pill" data-v="materie">Materie</button>
-      <button class="pill" data-v="libri">Libri</button>
-    </nav>
   </header>
 
-  <section class="card" style="margin-bottom:16px">
-    <div class="kicker">Account studente</div>
-    <h2 class="today-title" style="font-size:1.15rem">Accedi o registrati</h2>
-    <p class="sub" style="margin-bottom:10px">Senza account i dati restano solo su questo dispositivo.</p>
-    <div class="pdf-grid">
-      <label class="field">Nome <input placeholder="es. Giulia Rossi" /></label>
-      <label class="field">Email <input placeholder="studente@email.it" /></label>
-      <label class="field">Password <input type="password" placeholder="almeno 6 caratteri" /></label>
+  <section class="card" id="cfgCard">
+    <div class="kicker">Configurazione</div>
+    <h2 class="title">Supabase Auth (passkey)</h2>
+    <p class="sub">I dati vanno su Vercel Blob. Auth e passkey su Supabase.</p>
+    <div class="grid2" style="margin-top:10px">
+      <label>Project URL <input id="sbUrl" placeholder="https://xxxx.supabase.co" /></label>
+      <label>anon key <input id="sbKey" placeholder="eyJhbGciOi..." /></label>
+    </div>
+    <div class="toolbar"><button class="btn" id="saveCfg">Salva chiavi</button></div>
+    <p id="cfgNote" class="sub"></p>
+  </section>
+
+  <section class="card hidden" id="authCard">
+    <div class="kicker">Account</div>
+    <h2 class="title" id="authTitle">Accedi o registrati</h2>
+    <p class="sub">Login obbligatorio. Passkey disponibile dopo il primo accesso.</p>
+    <div class="grid2">
+      <label>Email <input id="email" type="email" placeholder="studente@email.it" /></label>
+      <label>Password <input id="pass" type="password" placeholder="min 6 caratteri" /></label>
     </div>
     <div class="toolbar">
-      <button class="btn">Registrati</button>
-      <button class="btn ghost">Accedi</button>
-      <button class="btn ghost">Recupera password</button>
+      <button class="btn" id="btnReg">Registrati</button>
+      <button class="btn ghost" id="btnLogin">Accedi</button>
+      <button class="btn ghost" id="btnPasskey">Accedi con Passkey</button>
+      <button class="btn ghost" id="btnRegPasskey" style="display:none">Registra Passkey</button>
+      <button class="btn ghost" id="btnOut" style="display:none">Esci</button>
     </div>
+    <p id="authNote" class="sub"></p>
   </section>
 
-  <section class="hero">
-    <div class="card">
-      <div class="kicker">Martedì · 3A Liceo Scientifico</div>
-      <h2 class="today-title">Lezioni di oggi</h2>
-      <div class="toolbar">
-        <select><option>3A Liceo Scientifico</option><option>2B Istituto Tecnico</option></select>
-        <button class="btn">Esporta PDF</button>
-        <button class="btn ghost">Stampa</button>
-      </div>
-      <div class="lesson now"><div class="time">08:00</div><div><strong>Italiano</strong><div class="sub">Prof.ssa Riva · aula A12</div></div><span class="badge">in corso</span></div>
-      <div class="lesson"><div class="time">09:00</div><div><strong>Matematica</strong><div class="sub">Prof.ssa Bianchi · aula A12</div></div><span class="badge">ora 2</span></div>
-      <div class="lesson"><div class="time">10:00</div><div><strong>Scienze</strong><div class="sub">Prof. Costa · Lab Scienze</div></div><span class="badge">ora 3</span></div>
-      <div class="lesson"><div class="time">11:00</div><div><strong>Educazione fisica</strong><div class="sub">Prof. Neri · Palestra</div></div><span class="badge">ora 4</span></div>
-      <div class="lesson"><div class="time">12:00</div><div><strong>Filosofia</strong><div class="sub">Prof. Marino · aula A12</div></div><span class="badge">ora 5</span></div>
+  <section class="card hidden" id="appCard">
+    <div class="kicker">Studenti</div>
+    <h2 class="title" id="appTitle">I tuoi studenti</h2>
+    <div id="studentList"></div>
+    <div class="grid2" style="margin-top:12px">
+      <label>Nome <input id="newNome" placeholder="Giulia Rossi" /></label>
+      <label>Classe <input id="newClasse" placeholder="3A" /></label>
     </div>
-    <div class="stats">
-      <div class="card stat"><span class="kicker">Prossima lezione</span><b>Italiano</b><div class="sub">08:00–09:00 · A12 · Prof.ssa Riva</div></div>
-      <div class="card stat"><span class="kicker">Ore oggi</span><b>5 ore</b></div>
-      <div class="card stat"><span class="kicker">Consiglio</span><div class="sub">Tieni il telefono in silenzioso in aula.</div></div>
+    <div class="toolbar">
+      <button class="btn" id="addStudent">Aggiungi studente</button>
+      <button class="btn ghost" id="saveData">Salva su Blob</button>
     </div>
-  </section>
-
-  <section class="card" id="week">
-    <div class="kicker">Orario settimanale</div>
-    <h2 class="today-title" style="font-size:1.25rem">Griglia della classe</h2>
-    <div class="grid-wrap">
-      <table class="orario">
-        <tr><th>Ora</th><th>Lunedì</th><th>Martedì</th><th>Mercoledì</th><th>Giovedì</th><th>Venerdì</th><th>Sabato</th></tr>
-        <tr>
-          <th>08:00–09:00</th>
-          <td><div class="slot c0"><h4>Matematica</h4><p>Prof.ssa Bianchi<br>A12</p></div></td>
-          <td><div class="slot c2"><h4>Italiano</h4><p>Prof.ssa Riva<br>A12</p></div></td>
-          <td><div class="slot c3"><h4>Inglese</h4><p>Prof.ssa Green<br>A12</p></div></td>
-          <td><div class="slot c4"><h4>Storia</h4><p>Prof. Marino<br>A12</p></div></td>
-          <td><div class="slot c1"><h4>Fisica</h4><p>Prof. Conti<br>Lab Fisica</p></div></td>
-          <td><div class="slot c5"><h4>Scienze</h4><p>Prof. Costa<br>Lab Scienze</p></div></td>
-        </tr>
-        <tr>
-          <th>09:00–10:00</th>
-          <td><div class="slot c1"><h4>Fisica</h4><p>Prof. Conti<br>Lab Fisica</p></div></td>
-          <td><div class="slot c0"><h4>Matematica</h4><p>Prof.ssa Bianchi<br>A12</p></div></td>
-          <td><div class="slot c1"><h4>Fisica</h4><p>Prof. Conti<br>Lab Fisica</p></div></td>
-          <td><div class="slot c5"><h4>Scienze</h4><p>Prof. Costa<br>Lab Scienze</p></div></td>
-          <td><div class="slot c2"><h4>Italiano</h4><p>Prof.ssa Riva<br>A12</p></div></td>
-          <td><div class="slot c5"><h4>Disegno</h4><p>Prof.ssa Fontana<br>Aula Arte</p></div></td>
-        </tr>
-      </table>
-    </div>
-  </section>
-
-  <section class="card hidden" id="libri" style="margin-top:16px">
-    <div class="kicker">Sussidi didattici</div>
-    <h2 class="today-title" style="font-size:1.25rem">Libri necessari per giorno</h2>
-    <div class="pills" style="margin-bottom:14px">
-      <button class="pill active">Oggi</button>
-      <button class="pill">Lunedì</button>
-      <button class="pill">Martedì</button>
-      <button class="pill">Settimana</button>
-    </div>
-    <div class="lesson"><div class="time">2 testi</div><div><strong>Italiano</strong><div class="sub">Letteratura visibile – Dal Barocco all’Ottocento<br>Baldi · Paravia · ISBN 978-88-39-53012-8</div></div></div>
-    <div class="lesson"><div class="time">1 testo</div><div><strong>Matematica</strong><div class="sub">Matematica.blu 2.0 – Vol. 3<br>Bergamini · Zanichelli · ISBN 978-88-08-32011-5</div></div></div>
+    <p id="appNote" class="sub"></p>
   </section>
 </div>
+
 <script>
-document.querySelectorAll('[data-v]').forEach(b=>{
-  b.onclick=()=>{
-    document.querySelectorAll('[data-v]').forEach(x=>x.classList.toggle('active',x===b));
-    document.getElementById('week').classList.toggle('hidden', b.dataset.v==='libri'||b.dataset.v==='materie');
-    document.getElementById('libri').classList.toggle('hidden', b.dataset.v!=='libri');
-  };
-});
+const CFG_KEY = "orario.cfg";
+let sb = null;
+let user = null;
+let data = { studenti: [] };
+
+function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch { return {}; } }
+function saveCfg(url, key) { localStorage.setItem(CFG_KEY, JSON.stringify({ url, key })); }
+
+function getSb() {
+  const c = loadCfg();
+  if (!c.url || !c.key) return null;
+  if (!sb) sb = supabase.createClient(c.url, c.key, { auth: { experimental: { passkey: true } } });
+  return sb;
+}
+
+function note(id, msg) { const el = document.getElementById(id); if (el) el.textContent = msg || ""; }
+
+async function refresh() {
+  const client = getSb();
+  if (!client) return;
+  const { data: s } = await client.auth.getSession();
+  user = s.session?.user || null;
+  const logged = !!user;
+
+  document.getElementById("authCard").classList.toggle("hidden", logged);
+  document.getElementById("appCard").classList.toggle("hidden", !logged);
+  document.getElementById("btnOut").style.display = logged ? "" : "none";
+  document.getElementById("btnRegPasskey").style.display = logged ? "" : "none";
+  document.getElementById("headerStatus").textContent = logged
+    ? (user.email || "Account") + " · a.s. 2026/27"
+    : "Accesso obbligatorio";
+
+  if (logged) {
+    await loadData();
+    renderStudents();
+  }
+}
+
+async function loadData() {
+  if (!user) return;
+  const r = await fetch("/api/data", { headers: { Authorization: user.id } });
+  if (r.ok) data = await r.json();
+  else data = { studenti: [] };
+}
+
+async function saveData() {
+  if (!user) return;
+  await fetch("/api/data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: user.id },
+    body: JSON.stringify(data)
+  });
+  note("appNote", "Salvato su Vercel Blob.");
+}
+
+function renderStudents() {
+  const box = document.getElementById("studentList");
+  box.innerHTML = (data.studenti || []).map((s, i) =>
+    `<span class="student-chip" data-i="${i}">${s.nome} · ${s.classe}</span>`
+  ).join("") || "<span class='sub'>Nessuno studente.</span>";
+}
+
+document.getElementById("saveCfg").onclick = () => {
+  const url = document.getElementById("sbUrl").value.trim();
+  const key = document.getElementById("sbKey").value.trim();
+  if (!url || !key) return note("cfgNote", "Inserisci URL e chiave.");
+  saveCfg(url, key);
+  document.getElementById("cfgCard").classList.add("hidden");
+  document.getElementById("authCard").classList.remove("hidden");
+  note("cfgNote", "Chiavi salvate.");
+  getSb();
+  refresh();
+};
+
+document.getElementById("btnReg").onclick = async () => {
+  const client = getSb();
+  if (!client) return alert("Configura Supabase.");
+  const email = document.getElementById("email").value.trim();
+  const pass = document.getElementById("pass").value;
+  if (!email || pass.length < 6) return alert("Email e password (min 6).");
+  const { error } = await client.auth.signUp({ email, password: pass });
+  if (error) return alert(error.message);
+  note("authNote", "Registrazione ok. Controlla email o accedi.");
+  refresh();
+};
+
+document.getElementById("btnLogin").onclick = async () => {
+  const client = getSb();
+  if (!client) return alert("Configura Supabase.");
+  const email = document.getElementById("email").value.trim();
+  const pass = document.getElementById("pass").value;
+  const { error } = await client.auth.signInWithPassword({ email, password: pass });
+  if (error) return alert(error.message);
+  note("authNote", "Accesso effettuato.");
+  refresh();
+};
+
+document.getElementById("btnPasskey").onclick = async () => {
+  const client = getSb();
+  if (!client) return alert("Configura Supabase.");
+  const { error } = await client.auth.signInWithPasskey();
+  if (error) return alert(error.message);
+  note("authNote", "Accesso con passkey ok.");
+  refresh();
+};
+
+document.getElementById("btnRegPasskey").onclick = async () => {
+  const client = getSb();
+  if (!client || !user) return;
+  const { error } = await client.auth.registerPasskey();
+  if (error) return alert(error.message);
+  note("authNote", "Passkey registrata.");
+};
+
+document.getElementById("btnOut").onclick = async () => {
+  const client = getSb();
+  if (client) await client.auth.signOut();
+  user = null;
+  refresh();
+};
+
+document.getElementById("addStudent").onclick = async () => {
+  const nome = document.getElementById("newNome").value.trim();
+  const classe = document.getElementById("newClasse").value.trim();
+  if (!nome || !classe) return alert("Nome e classe obbligatori.");
+  data.studenti = data.studenti || [];
+  data.studenti.push({ nome, classe, id: crypto.randomUUID() });
+  document.getElementById("newNome").value = "";
+  document.getElementById("newClasse").value = "";
+  renderStudents();
+  await saveData();
+};
+
+document.getElementById("saveData").onclick = saveData;
+
+const cfg = loadCfg();
+if (cfg.url && cfg.key) {
+  document.getElementById("cfgCard").classList.add("hidden");
+  document.getElementById("authCard").classList.remove("hidden");
+  getSb();
+  refresh();
+}
 </script>
 </body>
 </html>
