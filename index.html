@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Il mio orario — Scuola</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@simplewebauthn/browser@13.1.0/dist/bundle/index.umd.min.js"></script>
   <style>
     :root { --bg:#0b1220; --card:rgba(255,255,255,.06); --line:rgba(255,255,255,.1); --text:#f4f7ff; --muted:#9aa8c2; --accent:#5eead4; }
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -26,11 +26,7 @@
     .btn { border:0; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600; background:linear-gradient(135deg,#2dd4bf,#38bdf8); color:#042f2e; }
     .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
     .hidden { display:none !important; }
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    label { display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:var(--muted); }
-    #note { margin-top:8px; font-size:.85rem; color:var(--muted); }
     .student-chip { display:inline-block; padding:6px 12px; margin:4px; border-radius:999px; border:1px solid var(--line); cursor:pointer; }
-    .student-chip.active { background:#14b8a633; border-color:#2dd4bf66; color:var(--accent); }
   </style>
 </head>
 <body>
@@ -40,36 +36,19 @@
       <div class="logo">OS</div>
       <div>
         <h1>Il mio orario</h1>
-        <p id="headerStatus">Accesso obbligatorio</p>
+        <p id="headerStatus">Accesso con Passkey</p>
       </div>
     </div>
   </header>
 
-  <section class="card" id="cfgCard">
-    <div class="kicker">Configurazione</div>
-    <h2 class="title">Supabase Auth (passkey)</h2>
-    <p class="sub">I dati vanno su Vercel Blob. Auth e passkey su Supabase.</p>
-    <div class="grid2" style="margin-top:10px">
-      <label>Project URL <input id="sbUrl" placeholder="https://xxxx.supabase.co" /></label>
-      <label>anon key <input id="sbKey" placeholder="eyJhbGciOi..." /></label>
-    </div>
-    <div class="toolbar"><button class="btn" id="saveCfg">Salva chiavi</button></div>
-    <p id="cfgNote" class="sub"></p>
-  </section>
-
-  <section class="card hidden" id="authCard">
-    <div class="kicker">Account</div>
-    <h2 class="title" id="authTitle">Accedi o registrati</h2>
-    <p class="sub">Login obbligatorio. Passkey disponibile dopo il primo accesso.</p>
-    <div class="grid2">
-      <label>Email <input id="email" type="email" placeholder="studente@email.it" /></label>
-      <label>Password <input id="pass" type="password" placeholder="min 6 caratteri" /></label>
-    </div>
+  <section class="card" id="authCard">
+    <div class="kicker">Passkey (Vercel)</div>
+    <h2 class="title">Accedi o registra passkey</h2>
+    <p class="sub">Autenticazione passkey gestita interamente su Vercel + Blob.</p>
+    <label>Email <input id="email" type="email" placeholder="studente@email.it" /></label>
     <div class="toolbar">
-      <button class="btn" id="btnReg">Registrati</button>
-      <button class="btn ghost" id="btnLogin">Accedi</button>
-      <button class="btn ghost" id="btnPasskey">Accedi con Passkey</button>
-      <button class="btn ghost" id="btnRegPasskey" style="display:none">Registra Passkey</button>
+      <button class="btn" id="btnReg">Registra Passkey</button>
+      <button class="btn ghost" id="btnLogin">Accedi con Passkey</button>
       <button class="btn ghost" id="btnOut" style="display:none">Esci</button>
     </div>
     <p id="authNote" class="sub"></p>
@@ -77,9 +56,9 @@
 
   <section class="card hidden" id="appCard">
     <div class="kicker">Studenti</div>
-    <h2 class="title" id="appTitle">I tuoi studenti</h2>
+    <h2 class="title">I tuoi studenti</h2>
     <div id="studentList"></div>
-    <div class="grid2" style="margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
       <label>Nome <input id="newNome" placeholder="Giulia Rossi" /></label>
       <label>Classe <input id="newClasse" placeholder="3A" /></label>
     </div>
@@ -92,148 +71,108 @@
 </div>
 
 <script>
-const CFG_KEY = "orario.cfg";
-let sb = null;
-let user = null;
+const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
+let currentEmail = localStorage.getItem('orario.email') || null;
 let data = { studenti: [] };
 
-function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch { return {}; } }
-function saveCfg(url, key) { localStorage.setItem(CFG_KEY, JSON.stringify({ url, key })); }
+function note(id, msg) { document.getElementById(id).textContent = msg || ''; }
 
-function getSb() {
-  const c = loadCfg();
-  if (!c.url || !c.key) return null;
-  if (!sb) sb = supabase.createClient(c.url, c.key, { auth: { experimental: { passkey: true } } });
-  return sb;
-}
-
-function note(id, msg) { const el = document.getElementById(id); if (el) el.textContent = msg || ""; }
-
-async function refresh() {
-  const client = getSb();
-  if (!client) return;
-  const { data: s } = await client.auth.getSession();
-  user = s.session?.user || null;
-  const logged = !!user;
-
-  document.getElementById("authCard").classList.toggle("hidden", logged);
-  document.getElementById("appCard").classList.toggle("hidden", !logged);
-  document.getElementById("btnOut").style.display = logged ? "" : "none";
-  document.getElementById("btnRegPasskey").style.display = logged ? "" : "none";
-  document.getElementById("headerStatus").textContent = logged
-    ? (user.email || "Account") + " · a.s. 2026/27"
-    : "Accesso obbligatorio";
-
-  if (logged) {
-    await loadData();
-    renderStudents();
-  }
+function setLogged(email) {
+  currentEmail = email;
+  localStorage.setItem('orario.email', email || '');
+  document.getElementById('authCard').classList.toggle('hidden', !!email);
+  document.getElementById('appCard').classList.toggle('hidden', !email);
+  document.getElementById('btnOut').style.display = email ? '' : 'none';
+  document.getElementById('headerStatus').textContent = email ? email + ' · a.s. 2026/27' : 'Accesso con Passkey';
+  if (email) loadData();
 }
 
 async function loadData() {
-  if (!user) return;
-  const r = await fetch("/api/data", { headers: { Authorization: user.id } });
-  if (r.ok) data = await r.json();
-  else data = { studenti: [] };
+  if (!currentEmail) return;
+  const r = await fetch('/api/data', { headers: { Authorization: currentEmail } });
+  data = r.ok ? await r.json() : { studenti: [] };
+  renderStudents();
 }
 
 async function saveData() {
-  if (!user) return;
-  await fetch("/api/data", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: user.id },
+  if (!currentEmail) return;
+  await fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: currentEmail },
     body: JSON.stringify(data)
   });
-  note("appNote", "Salvato su Vercel Blob.");
+  note('appNote', 'Salvato su Vercel Blob.');
 }
 
 function renderStudents() {
-  const box = document.getElementById("studentList");
-  box.innerHTML = (data.studenti || []).map((s, i) =>
-    `<span class="student-chip" data-i="${i}">${s.nome} · ${s.classe}</span>`
-  ).join("") || "<span class='sub'>Nessuno studente.</span>";
+  const box = document.getElementById('studentList');
+  box.innerHTML = (data.studenti || []).map(s =>
+    `<span class="student-chip">${s.nome} · ${s.classe}</span>`
+  ).join('') || '<span class="sub">Nessuno studente.</span>';
 }
 
-document.getElementById("saveCfg").onclick = () => {
-  const url = document.getElementById("sbUrl").value.trim();
-  const key = document.getElementById("sbKey").value.trim();
-  if (!url || !key) return note("cfgNote", "Inserisci URL e chiave.");
-  saveCfg(url, key);
-  document.getElementById("cfgCard").classList.add("hidden");
-  document.getElementById("authCard").classList.remove("hidden");
-  note("cfgNote", "Chiavi salvate.");
-  getSb();
-  refresh();
+document.getElementById('btnReg').onclick = async () => {
+  const email = document.getElementById('email').value.trim();
+  if (!email) return alert('Inserisci email.');
+  try {
+    const opts = await fetch('/api/passkey/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(r => r.json());
+    const cred = await startRegistration(opts);
+    const res = await fetch('/api/passkey/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, credential: cred })
+    }).then(r => r.json());
+    if (res.verified) {
+      note('authNote', 'Passkey registrata. Ora puoi accedere.');
+      setLogged(email);
+    } else alert(res.error || 'Registrazione fallita');
+  } catch (e) { alert(e.message); }
 };
 
-document.getElementById("btnReg").onclick = async () => {
-  const client = getSb();
-  if (!client) return alert("Configura Supabase.");
-  const email = document.getElementById("email").value.trim();
-  const pass = document.getElementById("pass").value;
-  if (!email || pass.length < 6) return alert("Email e password (min 6).");
-  const { error } = await client.auth.signUp({ email, password: pass });
-  if (error) return alert(error.message);
-  note("authNote", "Registrazione ok. Controlla email o accedi.");
-  refresh();
+document.getElementById('btnLogin').onclick = async () => {
+  const email = document.getElementById('email').value.trim();
+  if (!email) return alert('Inserisci email.');
+  try {
+    const opts = await fetch('/api/passkey/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(r => r.json());
+    if (opts.error) return alert(opts.error);
+    const cred = await startAuthentication(opts);
+    const res = await fetch('/api/passkey/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, credential: cred })
+    }).then(r => r.json());
+    if (res.verified) {
+      note('authNote', 'Accesso con passkey ok.');
+      setLogged(email);
+    } else alert(res.error || 'Login fallito');
+  } catch (e) { alert(e.message); }
 };
 
-document.getElementById("btnLogin").onclick = async () => {
-  const client = getSb();
-  if (!client) return alert("Configura Supabase.");
-  const email = document.getElementById("email").value.trim();
-  const pass = document.getElementById("pass").value;
-  const { error } = await client.auth.signInWithPassword({ email, password: pass });
-  if (error) return alert(error.message);
-  note("authNote", "Accesso effettuato.");
-  refresh();
-};
+document.getElementById('btnOut').onclick = () => setLogged(null);
 
-document.getElementById("btnPasskey").onclick = async () => {
-  const client = getSb();
-  if (!client) return alert("Configura Supabase.");
-  const { error } = await client.auth.signInWithPasskey();
-  if (error) return alert(error.message);
-  note("authNote", "Accesso con passkey ok.");
-  refresh();
-};
-
-document.getElementById("btnRegPasskey").onclick = async () => {
-  const client = getSb();
-  if (!client || !user) return;
-  const { error } = await client.auth.registerPasskey();
-  if (error) return alert(error.message);
-  note("authNote", "Passkey registrata.");
-};
-
-document.getElementById("btnOut").onclick = async () => {
-  const client = getSb();
-  if (client) await client.auth.signOut();
-  user = null;
-  refresh();
-};
-
-document.getElementById("addStudent").onclick = async () => {
-  const nome = document.getElementById("newNome").value.trim();
-  const classe = document.getElementById("newClasse").value.trim();
-  if (!nome || !classe) return alert("Nome e classe obbligatori.");
+document.getElementById('addStudent').onclick = async () => {
+  const nome = document.getElementById('newNome').value.trim();
+  const classe = document.getElementById('newClasse').value.trim();
+  if (!nome || !classe) return alert('Nome e classe obbligatori.');
   data.studenti = data.studenti || [];
-  data.studenti.push({ nome, classe, id: crypto.randomUUID() });
-  document.getElementById("newNome").value = "";
-  document.getElementById("newClasse").value = "";
+  data.studenti.push({ nome, classe });
+  document.getElementById('newNome').value = '';
+  document.getElementById('newClasse').value = '';
   renderStudents();
   await saveData();
 };
 
-document.getElementById("saveData").onclick = saveData;
+document.getElementById('saveData').onclick = saveData;
 
-const cfg = loadCfg();
-if (cfg.url && cfg.key) {
-  document.getElementById("cfgCard").classList.add("hidden");
-  document.getElementById("authCard").classList.remove("hidden");
-  getSb();
-  refresh();
-}
+if (currentEmail) setLogged(currentEmail);
 </script>
 </body>
 </html>
