@@ -36,15 +36,15 @@
       <div class="logo">OS</div>
       <div>
         <h1>Il mio orario</h1>
-        <p id="headerStatus">Accesso con Passkey · build 3</p>
+        <p id="headerStatus">Accesso con Passkey</p>
       </div>
     </div>
   </header>
 
   <section class="card" id="authCard">
-    <div class="kicker">Passkey (Vercel)</div>
+    <div class="kicker">Accesso</div>
     <h2 class="title">Accedi o registra passkey</h2>
-    <p class="sub">Autenticazione passkey gestita interamente su Vercel + Blob.</p>
+    <p class="sub">Entra con la passkey del telefono o del computer. I dati si salvano da soli.</p>
     <label>Email <input id="email" type="email" placeholder="studente@email.it" /></label>
     <div class="toolbar">
       <button class="btn" id="btnReg">Registra Passkey</button>
@@ -64,7 +64,6 @@
     </div>
     <div class="toolbar">
       <button class="btn" id="addStudent">Aggiungi studente</button>
-      <button class="btn ghost" id="saveData">Salva su Blob</button>
     </div>
     <p id="appNote" class="sub"></p>
   </section>
@@ -115,7 +114,7 @@ function setLogged(email) {
   document.getElementById('authCard').classList.toggle('hidden', !!email);
   document.getElementById('appCard').classList.toggle('hidden', !email);
   document.getElementById('btnOut').style.display = email ? '' : 'none';
-  document.getElementById('headerStatus').textContent = email ? email + ' · a.s. 2026/27' : 'Accesso con Passkey · build 3';
+  document.getElementById('headerStatus').textContent = email ? email + ' · a.s. 2026/27' : 'Accesso con Passkey';
   if (email) loadData();
 }
 
@@ -144,7 +143,7 @@ async function saveData() {
       headers: { 'Content-Type': 'application/json', Authorization: currentEmail },
       body: JSON.stringify(data)
     });
-    note('appNote', r.ok ? 'Salvato su Vercel Blob.' : 'Salvato su questo dispositivo.');
+    note('appNote', r.ok ? 'Salvato.' : 'Salvato su questo dispositivo.');
   } catch {
     note('appNote', 'Salvato su questo dispositivo.');
   }
@@ -200,8 +199,6 @@ document.getElementById('addStudent').onclick = async () => {
   renderStudents();
   await saveData();
 };
-
-document.getElementById('saveData').onclick = saveData;
 
 if (currentEmail) setLogged(currentEmail);
 </script>
